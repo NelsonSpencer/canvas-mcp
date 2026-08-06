@@ -289,6 +289,13 @@ class CanvasCredentialMiddleware:
 
             token = headers.get(b"x-canvas-token", b"").decode("utf-8", errors="ignore").strip()
 
+            if not token:
+                authorization = (
+                    headers.get(b"authorization", b"").decode("utf-8", errors="ignore").strip()
+                )
+                if authorization.lower().startswith("bearer "):
+                    token = authorization[len("bearer ") :].strip()
+
             if b"x-canvas-url" in headers:
                 log_warning("Ignoring X-Canvas-URL header; Canvas API URL is server-pinned")
 
