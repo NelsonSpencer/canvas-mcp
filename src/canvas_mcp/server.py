@@ -290,6 +290,11 @@ class CanvasCredentialMiddleware:
             token = headers.get(b"x-canvas-token", b"").decode("utf-8", errors="ignore").strip()
 
             if not token:
+                # Fallback for clients (e.g. Claude custom connectors) that only
+                # allow a fixed set of header names. X-Canvas-Token wins if both set.
+                token = headers.get(b"x-api-key", b"").decode("utf-8", errors="ignore").strip()
+
+            if not token:
                 authorization = (
                     headers.get(b"authorization", b"").decode("utf-8", errors="ignore").strip()
                 )
@@ -300,7 +305,7 @@ class CanvasCredentialMiddleware:
                 log_warning("Ignoring X-Canvas-URL header; Canvas API URL is server-pinned")
 
             if not token:
-                await _send_json_error(send, 401, "Missing X-Canvas-Token header")
+                await _send_json_error(send, 401, "Missing X-Canvas-Token (or x-api-key) header")
                 return
 
             canvas_url = config.canvas_api_url.strip()

@@ -121,6 +121,33 @@ class TestCanvasCredentialMiddleware:
         assert is_http_request_active() is False
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "headers,expected",
+        [
+            ([(b"x-api-key", b"key-token")], "key-token"),
+            ([(b"x-canvas-token", b"canvas-tok"), (b"x-api-key", b"key-token")], "canvas-tok"),
+            ([(b"x-canvas-token", b"  "), (b"x-api-key", b"key-token")], "key-token"),
+        ],
+    )
+    async def test_x_api_key_fallback(self, middleware, headers, expected):
+        """x-api-key is accepted as the Canvas token; X-Canvas-Token takes precedence."""
+        captured = {}
+
+        async def capture_app(scope, receive, send):
+            creds = get_request_credentials()
+            captured["token"] = creds.api_token if creds else None
+
+        middleware.app = capture_app
+        with patch(
+            "canvas_mcp.server.get_config",
+            return_value=_FakeConfig("https://canvas.illinois.edu/api/v1"),
+        ):
+            await middleware({"type": "http", "headers": headers}, AsyncMock(), AsyncMock())
+
+        assert captured["token"] == expected
+        assert get_request_credentials() is None
+
+    @pytest.mark.asyncio
     async def test_canvas_url_header_is_ignored(self, middleware):
         """A client-supplied X-Canvas-URL is ignored; the pinned URL is always used."""
         captured = {}
